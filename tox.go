@@ -38,6 +38,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+
 	// "sync"
 	"unsafe"
 
@@ -797,7 +798,7 @@ func (this *Tox) FriendGetName(friendNumber uint32) (string, error) {
 
 	var cerr C.TOX_ERR_FRIEND_QUERY
 	nlen := C.tox_friend_get_name_size(this.toxcore, _fn, &cerr)
-	_name := make([]byte, nlen)
+	_name := make([]byte, nlen+1)
 
 	r := C.tox_friend_get_name(this.toxcore, _fn, (*C.uint8_t)(safeptr(_name)), &cerr)
 	if !bool(r) {
