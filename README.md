@@ -1,3 +1,5 @@
+# USED FOR SPECIAL CLOUD PLATFORM, no DEPENDS.
+
 # ![Project Tox](https://raw.github.com/TokTok/c-toxcore/master/other/tox.png "Project Tox")
 
 **Current Coverage:**
