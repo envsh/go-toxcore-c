@@ -1,0 +1,11 @@
+prefix=/home/yatseni/oss/go-toxcore-c/c-toxcore/..
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libtoxav
+Description: Tox A/V library
+Requires: libtoxcore
+Version: 0.2.22
+Libs: -L${libdir} -ltoxav -L/home/yatseni/oss/go-toxcore-c/c-toxcore/../lib -L/home/yatseni/oss/go-toxcore-c/c-toxcore/../lib
+Cflags: -I${includedir}
