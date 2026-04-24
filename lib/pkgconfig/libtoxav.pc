@@ -1,0 +1,11 @@
+prefix=/opt/oldlibc-devsys
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libtoxav
+Description: Tox A/V library
+Requires: libtoxcore
+Version: 0.2.22
+Libs: -L${libdir} -ltoxav -L/opt/oldlibc-devsys/lib -L/opt/oldlibc-devsys/lib
+Cflags: -I${includedir}
