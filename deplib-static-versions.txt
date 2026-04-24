@@ -1,3 +1,17 @@
 libsodium-1.0.22.tar.gz
 libvpx-v1.16.0.tar.gz
 opus-1.5.2.tar.gz
+
+libsodium
+./configure --prefix=/opt/oldlibc-devsys/ --disable-shared --disable-ssp
+
+--disable-ssp or undefined symbol: __stack_chk_guard
+
+opus
+./configure --prefix=/opt/oldlibc-devsys/ --disable-shared
+
+libvpx
+CXXFLAGS="-std=c++11" ./configure --prefix=/opt/oldlibc-devsys --disable-shared --as=yasm --disable-unit-tests --disable-examples --disable-tools
+
+libtoxcore
+OPUS_CFLAGS="-I/opt/oldlibc-devsys/include/opus" OPUS_LIBS="-L/opt/oldlibc-devsys/lib" VPX_CFLAGS="-I/opt/oldlibc-devsys/include" VPX_LIBS="-L/opt/oldlibc-devsys/lib" LIBSODIUM_CFLAGS="-I/opt/oldlibc-devsys/include/" LIBSODIUM_LIBS="-L/opt/oldlibc-devsys/lib" ./configure --prefix=/opt/oldlibc-devsys/ --disable-shared --disable-testing
