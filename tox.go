@@ -102,6 +102,26 @@ type Tox struct {
 	cb_conference_peer_names         map[unsafe.Pointer]interface{}
 	cb_conference_peer_list_changeds map[unsafe.Pointer]interface{}
 
+	// Group Chat callbacks
+	cb_group_peer_names         map[unsafe.Pointer]interface{}
+	cb_group_peer_statuses      map[unsafe.Pointer]interface{}
+	cb_group_topics             map[unsafe.Pointer]interface{}
+	cb_group_privacy_states     map[unsafe.Pointer]interface{}
+	cb_group_voice_states       map[unsafe.Pointer]interface{}
+	cb_group_topic_locks        map[unsafe.Pointer]interface{}
+	cb_group_peer_limits        map[unsafe.Pointer]interface{}
+	cb_group_passwords          map[unsafe.Pointer]interface{}
+	cb_group_messages           map[unsafe.Pointer]interface{}
+	cb_group_private_messages   map[unsafe.Pointer]interface{}
+	cb_group_custom_packets     map[unsafe.Pointer]interface{}
+	cb_group_custom_private_packets map[unsafe.Pointer]interface{}
+	cb_group_invites            map[unsafe.Pointer]interface{}
+	cb_group_peer_joins         map[unsafe.Pointer]interface{}
+	cb_group_peer_exits         map[unsafe.Pointer]interface{}
+	cb_group_self_joins         map[unsafe.Pointer]interface{}
+	cb_group_join_fails         map[unsafe.Pointer]interface{}
+	cb_group_moderations        map[unsafe.Pointer]interface{}
+
 	cb_file_recv_controls  map[unsafe.Pointer]interface{}
 	cb_file_recvs          map[unsafe.Pointer]interface{}
 	cb_file_recv_chunks    map[unsafe.Pointer]interface{}
