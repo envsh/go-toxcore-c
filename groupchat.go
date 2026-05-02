@@ -31,8 +31,10 @@ static inline __attribute__((__unused__)) void fixnousegroupchat(void) {}
 */
 import "C"
 import (
-	"errors"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"log"
 	"strings"
 	"unsafe"
 )
@@ -125,21 +127,57 @@ func GroupModEventToString(value GroupModEvent) string {
 	return C.GoString(C.tox_group_mod_event_to_string(C.Tox_Group_Mod_Event(value)))
 }
 
+// groupJoinErrorToString 将 GroupJoin 错误码转换为可读字符串
+func groupJoinErrorToString(err int) string {
+	switch err {
+	case 0: // TOX_ERR_GROUP_JOIN_OK
+		return "success"
+	case 1: // TOX_ERR_GROUP_JOIN_NULL
+		return "NULL pointer"
+	case 2: // TOX_ERR_GROUP_JOIN_CHAT_ID_INVALID
+		return "chat id invalid"
+	case 3: // TOX_ERR_GROUP_JOIN_BAD_PASSWORD
+		return "bad password"
+	case 4: // TOX_ERR_GROUP_JOIN_FAILED_DECRYPT
+		return "failed to decrypt"
+	case 5: // TOX_ERR_GROUP_JOIN_INVALID_HANDLE
+		return "invalid handle"
+	default:
+		return fmt.Sprintf("unknown error %d", err)
+	}
+}
+
 // Group 管理函数
-func (this *Tox) GroupNew(privacyState GroupPrivacyState, groupName string, password string) (GroupNumber, error) {
+func (this *Tox) GroupNew(privacyState GroupPrivacyState, groupName string, name string) (GroupNumber, error) {
 	this.lock()
 	defer this.unlock()
 
 	var _privacy_state = C.Tox_Group_Privacy_State(privacyState)
-	var _group_name = []byte(groupName)
-	var _group_name_len = C.size_t(len(groupName))
-	var _password = []byte(password)
-	var _password_len = C.size_t(len(password))
+	
+	// 群组名称 (group_name)
+	var _group_name_cstr *C.char
+	var _group_name_len C.size_t
+	if len(groupName) > 0 {
+		_group_name_cstr = C.CString(groupName)
+		defer C.free(unsafe.Pointer(_group_name_cstr))
+		_group_name_len = C.size_t(len(groupName))
+	}
+	
+	// 创建者昵称 (name) - 这是 C 函数第5个参数，不是密码！
+	var _name_cstr *C.char
+	var _name_len C.size_t
+	if len(name) > 0 {
+		_name_cstr = C.CString(name)
+		defer C.free(unsafe.Pointer(_name_cstr))
+		_name_len = C.size_t(len(name))
+	}
 
 	var cerr C.Tox_Err_Group_New
+	// C 函数签名: tox_group_new(tox, privacy_state, group_name[], group_name_length, name[], name_length, error)
+	// 第5个参数 name[] 是创建者的昵称，不是密码
 	r := C.tox_group_new(this.toxcore, _privacy_state,
-		(*C.uint8_t)(&_group_name[0]), _group_name_len,
-		(*C.uint8_t)(&_password[0]), _password_len, &cerr)
+		(*C.uint8_t)(unsafe.Pointer(_group_name_cstr)), _group_name_len,
+		(*C.uint8_t)(unsafe.Pointer(_name_cstr)), _name_len, &cerr)
 	if r == C.UINT32_MAX {
 		return GroupNumber(r), toxerrf("group new failed: %d", cerr)
 	}
@@ -162,19 +200,41 @@ func (this *Tox) GroupJoin(chatId string, name string, password string) (GroupNu
 	this.lock()
 	defer this.unlock()
 
-	// tox_group_join 的第一个参数是 const Tox_Group_Chat_Id，需要传递 chat_id 的指针
-	var _name = []byte(name)
-	var _name_len = C.size_t(len(name))
-	var _password = []byte(password)
-	var _password_len = C.size_t(len(password))
+	// 安全转换 name 为空时传 nil
+	var _name_ptr *C.uint8_t
+	var _name_len C.size_t
+	if len(name) > 0 {
+		_name_cstr := C.CString(name)
+		defer C.free(unsafe.Pointer(_name_cstr))
+		_name_ptr = (*C.uint8_t)(unsafe.Pointer(_name_cstr))
+		_name_len = C.size_t(len(name))
+	}
+
+	// 安全转换 password 为空时传 nil
+	var _password_ptr *C.uint8_t
+	var _password_len C.size_t
+	if len(password) > 0 {
+		_password_cstr := C.CString(password)
+		defer C.free(unsafe.Pointer(_password_cstr))
+		_password_ptr = (*C.uint8_t)(unsafe.Pointer(_password_cstr))
+		_password_len = C.size_t(len(password))
+	}
 
 	var cerr C.Tox_Err_Group_Join
-	// 直接传递 data 指针，C 函数会读取 Tox_Group_Chat_Id 大小的数据
-	r := C.tox_group_join(this.toxcore, (*C.uint8_t)(&data[0]),
-		(*C.uint8_t)(&_name[0]), _name_len,
-		(*C.uint8_t)(&_password[0]), _password_len, &cerr)
+	
+	// 使用 C.CBytes 分配稳定的 C 内存，避免 Go GC 移动
+	cData := C.CBytes(data)
+	defer C.free(cData)
+	
+	log.Printf("GroupJoin: chatId=%s, data_len=%d, name=%s, password=%s", 
+		chatId, len(data), name, password)
+	
+	r := C.tox_group_join(this.toxcore, (*C.uint8_t)(cData),
+		_name_ptr, _name_len,
+		_password_ptr, _password_len, &cerr)
 	if r == C.UINT32_MAX {
-		return GroupNumber(r), toxerrf("group join failed: %d", cerr)
+		errStr := groupJoinErrorToString(int(cerr))
+		return GroupNumber(r), toxerrf("group join failed: %s (code %d)", errStr, cerr)
 	}
 	return GroupNumber(r), nil
 }
@@ -220,11 +280,18 @@ func (this *Tox) GroupLeave(groupNumber GroupNumber, partMessage string) error {
 	defer this.unlock()
 
 	var _gn = C.Tox_Group_Number(groupNumber)
-	var _part_message = []byte(partMessage)
-	var _length = C.size_t(len(partMessage))
+	
+	// 安全转换 partMessage 为空时传 nil
+	var _part_message_ptr *C.uint8_t
+	var _length C.size_t
+	if len(partMessage) > 0 {
+		_part_message_bytes := []byte(partMessage)
+		_part_message_ptr = (*C.uint8_t)(&_part_message_bytes[0])
+		_length = C.size_t(len(partMessage))
+	}
 
 	var cerr C.Tox_Err_Group_Leave
-	r := C.tox_group_leave(this.toxcore, _gn, (*C.uint8_t)(&_part_message[0]), _length, &cerr)
+	r := C.tox_group_leave(this.toxcore, _gn, _part_message_ptr, _length, &cerr)
 	if r == false {
 		return toxerrf("group leave failed: %d", cerr)
 	}
