@@ -101,6 +101,7 @@ type Tox struct {
 	cb_conference_titles             map[unsafe.Pointer]interface{}
 	cb_conference_peer_names         map[unsafe.Pointer]interface{}
 	cb_conference_peer_list_changeds map[unsafe.Pointer]interface{}
+	cb_conference_connecteds        map[unsafe.Pointer]interface{}
 
 	// Group Chat callbacks
 	cb_group_peer_names         map[unsafe.Pointer]interface{}
@@ -526,8 +527,9 @@ func NewTox(opt *ToxOptions) *Tox {
 	tox.cb_conference_titles = make(map[unsafe.Pointer]interface{})
 	tox.cb_conference_peer_names = make(map[unsafe.Pointer]interface{})
 	tox.cb_conference_peer_list_changeds = make(map[unsafe.Pointer]interface{})
+	tox.cb_conference_connecteds = make(map[unsafe.Pointer]interface{})
 
-	// Group Chat callbacks 初始化
+	// Group Chat callbacks
 	tox.cb_group_peer_names = make(map[unsafe.Pointer]interface{})
 	tox.cb_group_peer_statuses = make(map[unsafe.Pointer]interface{})
 	tox.cb_group_topics = make(map[unsafe.Pointer]interface{})

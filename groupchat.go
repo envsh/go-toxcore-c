@@ -19,7 +19,7 @@ void callbackGroupMessageWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Numb
 void callbackGroupPrivateMessageWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, Tox_Message_Type, uint8_t*, size_t, void*);
 void callbackGroupCustomPacketWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, uint8_t*, size_t, void*);
 void callbackGroupCustomPrivatePacketWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, uint8_t*, size_t, void*);
-void callbackGroupInviteWrapperForC(Tox*, Tox_Group_Number, uint32_t, uint8_t*, size_t, void*);
+void callbackGroupInviteWrapperForC(Tox*, uint32_t, uint8_t*, size_t, uint8_t*, size_t, void*);
 void callbackGroupPeerJoinWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, void*);
 void callbackGroupPeerExitWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, Tox_Group_Exit_Type, uint8_t*, size_t, void*);
 void callbackGroupSelfJoinWrapperForC(Tox*, Tox_Group_Number, void*);
@@ -30,6 +30,7 @@ void callbackGroupModerationWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_N
 static inline __attribute__((__unused__)) void fixnousegroupchat(void) {}
 */
 import "C"
+
 import (
 	"encoding/hex"
 	"errors"
@@ -41,7 +42,7 @@ import (
 
 type size_t = C.size_t
 
-// Group Chat 回调类型
+// Group Chat
 type cb_group_peer_name_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, name string, userData interface{})
 type cb_group_peer_status_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, status int, userData interface{})
 type cb_group_topic_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, topic string, userData interface{})
@@ -61,7 +62,6 @@ type cb_group_self_join_ftype func(this *Tox, groupNumber GroupNumber, userData 
 type cb_group_join_fail_ftype func(this *Tox, groupNumber GroupNumber, failType GroupJoinFail, userData interface{})
 type cb_group_chat_moderation_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, modEvent GroupModEvent, userName string, userData interface{})
 
-// 最大值/常量查询函数
 func (this *Tox) GroupMaxTopicLength() uint32 {
 	return uint32(C.tox_group_max_topic_length())
 }
@@ -98,7 +98,6 @@ func (this *Tox) GroupPeerPublicKeySize() uint32 {
 	return uint32(C.tox_group_peer_public_key_size())
 }
 
-// 枚举转字符串函数
 func GroupPrivacyStateToString(value GroupPrivacyState) string {
 	return C.GoString(C.tox_group_privacy_state_to_string(C.Tox_Group_Privacy_State(value)))
 }
@@ -127,7 +126,6 @@ func GroupModEventToString(value GroupModEvent) string {
 	return C.GoString(C.tox_group_mod_event_to_string(C.Tox_Group_Mod_Event(value)))
 }
 
-// groupJoinErrorToString 将 GroupJoin 错误码转换为可读字符串
 func groupJoinErrorToString(err int) string {
 	switch err {
 	case 0: // TOX_ERR_GROUP_JOIN_OK
@@ -147,14 +145,12 @@ func groupJoinErrorToString(err int) string {
 	}
 }
 
-// Group 管理函数
 func (this *Tox) GroupNew(privacyState GroupPrivacyState, groupName string, name string) (GroupNumber, error) {
 	this.lock()
 	defer this.unlock()
 
 	var _privacy_state = C.Tox_Group_Privacy_State(privacyState)
 	
-	// 群组名称 (group_name)
 	var _group_name_cstr *C.char
 	var _group_name_len C.size_t
 	if len(groupName) > 0 {
@@ -163,7 +159,6 @@ func (this *Tox) GroupNew(privacyState GroupPrivacyState, groupName string, name
 		_group_name_len = C.size_t(len(groupName))
 	}
 	
-	// 创建者昵称 (name) - 这是 C 函数第5个参数，不是密码！
 	var _name_cstr *C.char
 	var _name_len C.size_t
 	if len(name) > 0 {
@@ -173,8 +168,7 @@ func (this *Tox) GroupNew(privacyState GroupPrivacyState, groupName string, name
 	}
 
 	var cerr C.Tox_Err_Group_New
-	// C 函数签名: tox_group_new(tox, privacy_state, group_name[], group_name_length, name[], name_length, error)
-	// 第5个参数 name[] 是创建者的昵称，不是密码
+	// C: tox_group_new(tox, privacy_state, group_name[], group_name_length, name[], name_length, error)
 	r := C.tox_group_new(this.toxcore, _privacy_state,
 		(*C.uint8_t)(unsafe.Pointer(_group_name_cstr)), _group_name_len,
 		(*C.uint8_t)(unsafe.Pointer(_name_cstr)), _name_len, &cerr)
@@ -200,7 +194,6 @@ func (this *Tox) GroupJoin(chatId string, name string, password string) (GroupNu
 	this.lock()
 	defer this.unlock()
 
-	// 安全转换 name 为空时传 nil
 	var _name_ptr *C.uint8_t
 	var _name_len C.size_t
 	if len(name) > 0 {
@@ -210,7 +203,6 @@ func (this *Tox) GroupJoin(chatId string, name string, password string) (GroupNu
 		_name_len = C.size_t(len(name))
 	}
 
-	// 安全转换 password 为空时传 nil
 	var _password_ptr *C.uint8_t
 	var _password_len C.size_t
 	if len(password) > 0 {
@@ -222,7 +214,6 @@ func (this *Tox) GroupJoin(chatId string, name string, password string) (GroupNu
 
 	var cerr C.Tox_Err_Group_Join
 	
-	// 使用 C.CBytes 分配稳定的 C 内存，避免 Go GC 移动
 	cData := C.CBytes(data)
 	defer C.free(cData)
 	
@@ -244,8 +235,8 @@ func (this *Tox) GroupIsConnected(groupNumber GroupNumber) (bool, error) {
 
 	var cerr C.Tox_Err_Group_Is_Connected
 	r := C.tox_group_is_connected(this.toxcore, _gn, &cerr)
-	if r == false {
-		return bool(r), toxerrf("group is connected failed: %d", cerr)
+	if cerr != 0 {
+		return false, toxerrf("group is connected failed: %d", cerr)
 	}
 	return bool(r), nil
 }
@@ -281,7 +272,6 @@ func (this *Tox) GroupLeave(groupNumber GroupNumber, partMessage string) error {
 
 	var _gn = C.Tox_Group_Number(groupNumber)
 	
-	// 安全转换 partMessage 为空时传 nil
 	var _part_message_ptr *C.uint8_t
 	var _length C.size_t
 	if len(partMessage) > 0 {
@@ -298,7 +288,6 @@ func (this *Tox) GroupLeave(groupNumber GroupNumber, partMessage string) error {
 	return nil
 }
 
-// Self 信息查询/设置
 func (this *Tox) GroupSelfSetName(groupNumber GroupNumber, name string) error {
 	this.lock()
 	defer this.unlock()
@@ -407,7 +396,6 @@ func (this *Tox) GroupSelfGetPublicKey(groupNumber GroupNumber) (string, error) 
 	return pubkey, nil
 }
 
-// Peer 查询函数
 func (this *Tox) GroupPeerGetNameSize(groupNumber GroupNumber, peerNumber GroupPeerNumber) (size_t, error) {
 	var _gn = C.Tox_Group_Number(groupNumber)
 	var _pn = C.Tox_Group_Peer_Number(peerNumber)
@@ -491,7 +479,6 @@ func (this *Tox) GroupPeerGetPublicKey(groupNumber GroupNumber, peerNumber Group
 	return pubkey, nil
 }
 
-// Group 状态查询/设置
 func (this *Tox) GroupGetNameSize(groupNumber GroupNumber) (size_t, error) {
 	var _gn = C.Tox_Group_Number(groupNumber)
 
@@ -756,7 +743,6 @@ func (this *Tox) GroupSetPassword(groupNumber GroupNumber, password string) erro
 	return nil
 }
 
-// 消息发送函数
 func (this *Tox) GroupSendMessage(groupNumber GroupNumber, messageType int, message string) (GroupMessageId, error) {
 	this.lock()
 	defer this.unlock()
@@ -841,7 +827,6 @@ func (this *Tox) GroupSendCustomPrivatePacket(groupNumber GroupNumber, peerNumbe
 	return nil
 }
 
-// 邀请/管理函数
 func (this *Tox) GroupInviteFriend(groupNumber GroupNumber, friendNumber uint32) error {
 	this.lock()
 	defer this.unlock()
@@ -871,17 +856,27 @@ func (this *Tox) GroupInviteAccept(inviteData string, friendNumber uint32, name 
 	defer this.unlock()
 
 	var _fn = C.uint32_t(friendNumber)
-	var _data = (*C.uint8_t)(&data[0])
-	var _length = C.size_t(len(data))
-	var _name = []byte(name)
-	var _name_len = C.size_t(len(name))
-	var _password = []byte(password)
-	var _password_len = C.size_t(len(password))
+	
+	// invite_data 必须非 NULL
+	_data := (*C.uint8_t)(&data[0])
+	_length := C.size_t(len(data))
+	
+	// name 必须非 NULL 且长度 > 0
+	nameBytes := []byte(name)
+	_name := (*C.uint8_t)(&nameBytes[0])
+	_name_len := C.size_t(len(nameBytes))
+	
+	var _password *C.uint8_t
+	var _password_len C.size_t
+	if len(password) > 0 {
+		pwdBytes := []byte(password)
+		_password = (*C.uint8_t)(&pwdBytes[0])
+		_password_len = C.size_t(len(pwdBytes))
+	}
 
 	var cerr C.Tox_Err_Group_Invite_Accept
 	r := C.tox_group_invite_accept(this.toxcore, _fn, _data, _length,
-		(*C.uint8_t)(&_name[0]), _name_len,
-		(*C.uint8_t)(&_password[0]), _password_len, &cerr)
+		_name, _name_len, _password, _password_len, &cerr)
 	if r == C.UINT32_MAX {
 		return GroupNumber(r), toxerrf("group invite accept failed: %d", cerr)
 	}
@@ -935,7 +930,6 @@ func (this *Tox) GroupSetIgnore(groupNumber GroupNumber, peerNumber GroupPeerNum
 	return nil
 }
 
-// 回调注册函数
 //export callbackGroupPeerNameWrapperForC
 func callbackGroupPeerNameWrapperForC(m *C.Tox, a0 C.Tox_Group_Number, a1 C.Tox_Group_Peer_Number, a2 *C.uint8_t, a3 C.size_t, a4 unsafe.Pointer) {
 	var this = cbUserDatas.get(m)
@@ -1212,28 +1206,37 @@ func (this *Tox) CallbackGroupCustomPrivatePacketAdd(cbfn cb_group_custom_privat
 }
 
 //export callbackGroupInviteWrapperForC
-func callbackGroupInviteWrapperForC(m *C.Tox, a0 C.Tox_Group_Number, a1 C.uint32_t, a2 *C.uint8_t, a3 C.size_t, a4 unsafe.Pointer) {
-	var this = cbUserDatas.get(m)
-	for cbfni, ud := range this.cb_group_invites {
-		cbfn := *(*cb_group_chat_invite_ftype)(cbfni)
-		data := C.GoBytes(unsafe.Pointer(a2), C.int(a3))
-		cookie := hex.EncodeToString(data)
-		cookie = strings.ToUpper(cookie)
-		this.putcbevts(func() { cbfn(this, GroupNumber(a0), uint32(a1), cookie, ud) })
-	}
+func callbackGroupInviteWrapperForC(m *C.Tox, friendNumber C.uint32_t, cookie *C.uint8_t, cookieLength C.size_t, groupName *C.uint8_t, groupNameLength C.size_t, userData unsafe.Pointer) {
+    var this = cbUserDatas.get(m)
+    if this == nil {
+        return
+    }
+    
+    // Process invite data (cookie)
+    var cookieData []byte
+    if cookie != nil && cookieLength > 0 && cookieLength < 10*1024*1024 {
+        cookieData = C.GoBytes(unsafe.Pointer(cookie), C.int(cookieLength))
+    }
+    cookieStr := hex.EncodeToString(cookieData)
+    cookieStr = strings.ToUpper(cookieStr)
+    
+    for cbfni, ud := range this.cb_group_invites {
+        cbfn := *(*cb_group_chat_invite_ftype)(cbfni)
+        this.putcbevts(func() { cbfn(this, GroupNumber(0), uint32(friendNumber), cookieStr, ud) })
+    }
 }
 
 func (this *Tox) CallbackGroupChatInvite(cbfn cb_group_chat_invite_ftype, userData interface{}) {
-	this.CallbackGroupChatInviteAdd(cbfn, userData)
+    this.CallbackGroupChatInviteAdd(cbfn, userData)
 }
 func (this *Tox) CallbackGroupChatInviteAdd(cbfn cb_group_chat_invite_ftype, userData interface{}) {
-	cbfnp := (unsafe.Pointer)(&cbfn)
-	if _, ok := this.cb_group_invites[cbfnp]; ok {
-		return
-	}
-	this.cb_group_invites[cbfnp] = userData
-
-	C.tox_callback_group_invite(this.toxcore, (*C.tox_group_invite_cb)(C.callbackGroupInviteWrapperForC))
+    cbfnp := (unsafe.Pointer)(&cbfn)
+    if _, ok := this.cb_group_invites[cbfnp]; ok {
+        return
+    }
+    this.cb_group_invites[cbfnp] = userData
+    
+    C.tox_callback_group_invite(this.toxcore, (*C.tox_group_invite_cb)(C.callbackGroupInviteWrapperForC))
 }
 
 //export callbackGroupPeerJoinWrapperForC
