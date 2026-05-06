@@ -15,8 +15,8 @@ void callbackGroupVoiceStateWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Voice_
 void callbackGroupTopicLockWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Topic_Lock, void*);
 void callbackGroupPeerLimitWrapperForC(Tox*, Tox_Group_Number, uint32_t, void*);
 void callbackGroupPasswordWrapperForC(Tox*, Tox_Group_Number, uint8_t*, size_t, void*);
-void callbackGroupMessageWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, Tox_Message_Type, uint8_t*, size_t, void*);
-void callbackGroupPrivateMessageWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, Tox_Message_Type, uint8_t*, size_t, void*);
+void callbackGroupMessageWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, Tox_Message_Type, uint8_t*, size_t, Tox_Group_Message_Id, void*);
+void callbackGroupPrivateMessageWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, Tox_Message_Type, uint8_t*, size_t, Tox_Group_Message_Id, void*);
 void callbackGroupCustomPacketWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, uint8_t*, size_t, void*);
 void callbackGroupCustomPrivatePacketWrapperForC(Tox*, Tox_Group_Number, Tox_Group_Peer_Number, uint8_t*, size_t, void*);
 void callbackGroupInviteWrapperForC(Tox*, uint32_t, uint8_t*, size_t, uint8_t*, size_t, void*);
@@ -51,16 +51,16 @@ type cb_group_voice_state_ftype func(this *Tox, groupNumber GroupNumber, voiceSt
 type cb_group_topic_lock_ftype func(this *Tox, groupNumber GroupNumber, topicLock GroupTopicLock, userData interface{})
 type cb_group_peer_limit_ftype func(this *Tox, groupNumber GroupNumber, peerLimit uint32, userData interface{})
 type cb_group_password_ftype func(this *Tox, groupNumber GroupNumber, password string, userData interface{})
-type cb_group_chat_message_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, message string, userData interface{})
-type cb_group_chat_private_message_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, message string, userData interface{})
+type cb_group_message_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, message string, userData interface{})
+type cb_group_private_message_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, message string, userData interface{})
 type cb_group_custom_packet_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, data []byte, userData interface{})
 type cb_group_custom_private_packet_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, data []byte, userData interface{})
-type cb_group_chat_invite_ftype func(this *Tox, groupNumber GroupNumber, friendNumber uint32, data string, userData interface{})
+type cb_group_invite_ftype func(this *Tox, groupNumber GroupNumber, friendNumber uint32, data string, userData interface{})
 type cb_group_peer_join_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, userData interface{})
 type cb_group_peer_exit_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, exitType GroupExitType, name string, userData interface{})
 type cb_group_self_join_ftype func(this *Tox, groupNumber GroupNumber, userData interface{})
 type cb_group_join_fail_ftype func(this *Tox, groupNumber GroupNumber, failType GroupJoinFail, userData interface{})
-type cb_group_chat_moderation_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, modEvent GroupModEvent, userName string, userData interface{})
+type cb_group_moderation_ftype func(this *Tox, groupNumber GroupNumber, peerNumber GroupPeerNumber, modEvent GroupModEvent, userName string, userData interface{})
 
 func (this *Tox) GroupMaxTopicLength() uint32 {
 	return uint32(C.tox_group_max_topic_length())
@@ -1110,11 +1110,11 @@ func (this *Tox) CallbackGroupPasswordAdd(cbfn cb_group_password_ftype, userData
 }
 
 //export callbackGroupMessageWrapperForC
-func callbackGroupMessageWrapperForC(m *C.Tox, a0 C.Tox_Group_Number, a1 C.Tox_Group_Peer_Number, a2 C.Tox_Message_Type, a3 *C.uint8_t, a4 C.size_t, a5 unsafe.Pointer) {
+func callbackGroupMessageWrapperForC(m *C.Tox, a0 C.Tox_Group_Number, a1 C.Tox_Group_Peer_Number, a2 C.Tox_Message_Type, a3 *C.uint8_t, a4 C.size_t, a5 C.Tox_Group_Message_Id, a6 unsafe.Pointer) {
 	var this = cbUserDatas.get(m)
 	if int(a2) == MESSAGE_TYPE_NORMAL {
 		for cbfni, ud := range this.cb_group_messages {
-			cbfn := *(*cb_group_chat_message_ftype)(cbfni)
+			cbfn := *(*cb_group_message_ftype)(cbfni)
 			message := C.GoStringN((*C.char)(unsafe.Pointer(a3)), C.int(a4))
 			this.putcbevts(func() { cbfn(this, GroupNumber(a0), GroupPeerNumber(a1), message, ud) })
 		}
@@ -1123,10 +1123,10 @@ func callbackGroupMessageWrapperForC(m *C.Tox, a0 C.Tox_Group_Number, a1 C.Tox_G
 	}
 }
 
-func (this *Tox) CallbackGroupChatMessage(cbfn cb_group_chat_message_ftype, userData interface{}) {
-	this.CallbackGroupChatMessageAdd(cbfn, userData)
+func (this *Tox) CallbackGroupMessage(cbfn cb_group_message_ftype, userData interface{}) {
+	this.CallbackGroupMessageAdd(cbfn, userData)
 }
-func (this *Tox) CallbackGroupChatMessageAdd(cbfn cb_group_chat_message_ftype, userData interface{}) {
+func (this *Tox) CallbackGroupMessageAdd(cbfn cb_group_message_ftype, userData interface{}) {
 	cbfnp := (unsafe.Pointer)(&cbfn)
 	if _, ok := this.cb_group_messages[cbfnp]; ok {
 		return
@@ -1137,19 +1137,19 @@ func (this *Tox) CallbackGroupChatMessageAdd(cbfn cb_group_chat_message_ftype, u
 }
 
 //export callbackGroupPrivateMessageWrapperForC
-func callbackGroupPrivateMessageWrapperForC(m *C.Tox, a0 C.Tox_Group_Number, a1 C.Tox_Group_Peer_Number, a2 C.Tox_Message_Type, a3 *C.uint8_t, a4 C.size_t, a5 unsafe.Pointer) {
+func callbackGroupPrivateMessageWrapperForC(m *C.Tox, a0 C.Tox_Group_Number, a1 C.Tox_Group_Peer_Number, a2 C.Tox_Message_Type, a3 *C.uint8_t, a4 C.size_t, a5 C.Tox_Group_Message_Id, a6 unsafe.Pointer) {
 	var this = cbUserDatas.get(m)
 	for cbfni, ud := range this.cb_group_private_messages {
-		cbfn := *(*cb_group_chat_private_message_ftype)(cbfni)
+		cbfn := *(*cb_group_private_message_ftype)(cbfni)
 		message := C.GoStringN((*C.char)(unsafe.Pointer(a3)), C.int(a4))
 		this.putcbevts(func() { cbfn(this, GroupNumber(a0), GroupPeerNumber(a1), message, ud) })
 	}
 }
 
-func (this *Tox) CallbackGroupChatPrivateMessage(cbfn cb_group_chat_private_message_ftype, userData interface{}) {
-	this.CallbackGroupChatPrivateMessageAdd(cbfn, userData)
+func (this *Tox) CallbackGroupPrivateMessage(cbfn cb_group_private_message_ftype, userData interface{}) {
+	this.CallbackGroupPrivateMessageAdd(cbfn, userData)
 }
-func (this *Tox) CallbackGroupChatPrivateMessageAdd(cbfn cb_group_chat_private_message_ftype, userData interface{}) {
+func (this *Tox) CallbackGroupPrivateMessageAdd(cbfn cb_group_private_message_ftype, userData interface{}) {
 	cbfnp := (unsafe.Pointer)(&cbfn)
 	if _, ok := this.cb_group_private_messages[cbfnp]; ok {
 		return
@@ -1221,15 +1221,15 @@ func callbackGroupInviteWrapperForC(m *C.Tox, friendNumber C.uint32_t, cookie *C
     cookieStr = strings.ToUpper(cookieStr)
     
     for cbfni, ud := range this.cb_group_invites {
-        cbfn := *(*cb_group_chat_invite_ftype)(cbfni)
+        cbfn := *(*cb_group_invite_ftype)(cbfni)
         this.putcbevts(func() { cbfn(this, GroupNumber(0), uint32(friendNumber), cookieStr, ud) })
     }
 }
 
-func (this *Tox) CallbackGroupChatInvite(cbfn cb_group_chat_invite_ftype, userData interface{}) {
-    this.CallbackGroupChatInviteAdd(cbfn, userData)
+func (this *Tox) CallbackGroupInvite(cbfn cb_group_invite_ftype, userData interface{}) {
+    this.CallbackGroupInviteAdd(cbfn, userData)
 }
-func (this *Tox) CallbackGroupChatInviteAdd(cbfn cb_group_chat_invite_ftype, userData interface{}) {
+func (this *Tox) CallbackGroupInviteAdd(cbfn cb_group_invite_ftype, userData interface{}) {
     cbfnp := (unsafe.Pointer)(&cbfn)
     if _, ok := this.cb_group_invites[cbfnp]; ok {
         return
@@ -1332,16 +1332,16 @@ func (this *Tox) CallbackGroupJoinFailAdd(cbfn cb_group_join_fail_ftype, userDat
 func callbackGroupModerationWrapperForC(m *C.Tox, a0 C.Tox_Group_Number, a1 C.Tox_Group_Peer_Number, a2 C.Tox_Group_Mod_Event, a3 *C.uint8_t, a4 C.size_t, a5 unsafe.Pointer) {
 	var this = cbUserDatas.get(m)
 	for cbfni, ud := range this.cb_group_moderations {
-		cbfn := *(*cb_group_chat_moderation_ftype)(cbfni)
+		cbfn := *(*cb_group_moderation_ftype)(cbfni)
 		userName := C.GoStringN((*C.char)(unsafe.Pointer(a3)), C.int(a4))
 		this.putcbevts(func() { cbfn(this, GroupNumber(a0), GroupPeerNumber(a1), GroupModEvent(a2), userName, ud) })
 	}
 }
 
-func (this *Tox) CallbackGroupChatModeration(cbfn cb_group_chat_moderation_ftype, userData interface{}) {
-	this.CallbackGroupChatModerationAdd(cbfn, userData)
+func (this *Tox) CallbackGroupModeration(cbfn cb_group_moderation_ftype, userData interface{}) {
+    this.CallbackGroupModerationAdd(cbfn, userData)
 }
-func (this *Tox) CallbackGroupChatModerationAdd(cbfn cb_group_chat_moderation_ftype, userData interface{}) {
+func (this *Tox) CallbackGroupModerationAdd(cbfn cb_group_moderation_ftype, userData interface{}) {
 	cbfnp := (unsafe.Pointer)(&cbfn)
 	if _, ok := this.cb_group_moderations[cbfnp]; ok {
 		return
